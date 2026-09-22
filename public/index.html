@@ -113,7 +113,7 @@
   }
 
   /* ---------- confetti ---------- */
-  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 40; }
+  #confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 40; }
 
   @media (prefers-reduced-motion: reduce) { .row { animation-duration: 400s !important; } h1 { animation: none; } }
 </style>
@@ -207,38 +207,60 @@
   lb.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
   lb.addEventListener('touchend', (e) => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) show(cur + (dx < 0 ? 1 : -1)); });
 
-  // ---------- confetti ----------
+  // ---------- confetti (Raycast-style: small, dense, floaty) ----------
   const cv = document.getElementById('confetti'), ctx = cv.getContext('2d');
-  const colors = ['#ff3fa4', '#ffe234', '#3ee7ff', '#b6ff3c', '#ffffff'];
-  let parts = [];
-  function size() { cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); }
-  size(); addEventListener('resize', size);
-  // burst: omnidirectional pop at a point. cannon: aimed spray (angle in radians, spread in radians).
-  function burst(fx, fy, n, angle, spread) {
-    for (let i = 0; i < n; i++) {
-      const a = angle === undefined ? Math.random() * Math.PI * 2 : angle + (Math.random() - .5) * spread;
-      const v = angle === undefined ? 4 + Math.random() * 9 : 14 + Math.random() * 14;
-      parts.push({ x: fx * innerWidth, y: fy * innerHeight, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4,
-        w: 6 + Math.random() * 8, h: 4 + Math.random() * 6, c: colors[Math.random() * colors.length | 0],
-        r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, life: 90 + Math.random() * 60 });
-    }
-    if (!raf) tick();
+  const colors = ['#ff3fa4', '#ffe234', '#3ee7ff', '#b6ff3c', '#ff7a3d', '#a78bfa', '#ffffff'];
+  let parts = [], raf = 0;
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 2);
+    cv.width = innerWidth * d; cv.height = innerHeight * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
   }
-  let raf = 0;
+  size(); addEventListener('resize', size);
+  // x,y in px. angle in radians (0 = right, -PI/2 = up). spread in radians.
+  function spray(x, y, n, angle, spread, power) {
+    for (let i = 0; i < n; i++) {
+      const a = angle + (Math.random() - .5) * spread;
+      const v = power * (0.45 + Math.random() * 0.75);
+      parts.push({
+        x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+        w: 3 + Math.random() * 4, h: 5 + Math.random() * 6,
+        c: colors[Math.random() * colors.length | 0],
+        r: Math.random() * Math.PI * 2, vr: (Math.random() - .5) * .25,
+        t: Math.random() * Math.PI * 2, // tumble phase (fakes 3D flip)
+        vt: .12 + Math.random() * .18,
+        sway: 1 + Math.random() * 2, phase: Math.random() * Math.PI * 2,
+        life: 220 + Math.random() * 120
+      });
+    }
+    if (!raf) raf = requestAnimationFrame(tick);
+  }
+  function burst(fx, fy, n) { spray(fx * innerWidth, fy * innerHeight, n, -Math.PI / 2, Math.PI * 2, 9); }
   function tick() {
     ctx.clearRect(0, 0, innerWidth, innerHeight);
-    parts = parts.filter(p => p.life-- > 0 && p.y < innerHeight + 20);
+    parts = parts.filter(p => p.life-- > 0 && p.y < innerHeight + 30);
     for (const p of parts) {
-      p.vy += .25; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr;
-      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
-      ctx.globalAlpha = Math.min(1, p.life / 30); ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
+      p.vy += 0.10;            // light gravity
+      p.vx *= 0.975; p.vy *= 0.975;   // air drag -> slows quickly, then floats
+      p.phase += 0.06;
+      p.x += p.vx + Math.sin(p.phase) * p.sway * 0.35;
+      p.y += p.vy;
+      p.r += p.vr; p.t += p.vt;
+      const flip = Math.cos(p.t);     // -1..1 -> squish on one axis = tumbling card
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.scale(1, Math.max(0.15, Math.abs(flip)));
+      ctx.fillStyle = p.c;
+      ctx.globalAlpha = Math.min(1, p.life / 60);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+      ctx.restore();
     }
     raf = parts.length ? requestAnimationFrame(tick) : 0;
   }
   function cannons() {
-    // two cannons in the bottom corners, firing up and inward
-    burst(0, 1, 140, -Math.PI * 0.30, Math.PI * 0.28);   // bottom-left  -> up-right
-    burst(1, 1, 140, -Math.PI * 0.70, Math.PI * 0.28);   // bottom-right -> up-left
+    const W = innerWidth, H = innerHeight;
+    // two cannons anchored at the literal bottom corners, aimed up and across
+    spray(0, H, 260, -Math.PI * 0.32, Math.PI * 0.30, 30);   // bottom-left  -> up-right
+    spray(W, H, 260, -Math.PI * 0.68, Math.PI * 0.30, 30);   // bottom-right -> up-left
   }
   document.getElementById('title').addEventListener('click', cannons);
   setTimeout(() => burst(0.5, 0.35, 120), 600); // welcome pop
