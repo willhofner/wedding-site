@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>We're Getting Married!</title>
-<meta name="description" content="Will & Riley are getting married. Ohio, 2027. Details coming soon.">
+<meta name="description" content="Will & Riley are getting married. Ohio. Details coming soon.">
 <meta property="og:title" content="WE'RE GETTING MARRIED">
-<meta property="og:description" content="Will & Riley · Ohio, 2027 · details coming soon">
+<meta property="og:description" content="Will & Riley · Ohio · details coming soon">
 <meta property="og:image" content="/photos/p18-full.jpg">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💍</text></svg>">
@@ -125,7 +125,7 @@
       <span class="l2">Getting</span>
       <span class="l3">Married</span>
     </h1>
-    <div id="sub">Ohio &nbsp;·&nbsp; 2027 &nbsp;·&nbsp; details coming soon</div>
+    <div id="sub">Ohio &nbsp;·&nbsp; details coming soon</div>
   </div>
 </main>
 <div id="hint">tap any photo · esc to go back</div>
@@ -208,9 +208,11 @@
   let parts = [];
   function size() { cv.width = innerWidth * devicePixelRatio; cv.height = innerHeight * devicePixelRatio; ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); }
   size(); addEventListener('resize', size);
-  function burst(fx, fy, n) {
+  // burst: omnidirectional pop at a point. cannon: aimed spray (angle in radians, spread in radians).
+  function burst(fx, fy, n, angle, spread) {
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2, v = 4 + Math.random() * 9;
+      const a = angle === undefined ? Math.random() * Math.PI * 2 : angle + (Math.random() - .5) * spread;
+      const v = angle === undefined ? 4 + Math.random() * 9 : 14 + Math.random() * 14;
       parts.push({ x: fx * innerWidth, y: fy * innerHeight, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 4,
         w: 6 + Math.random() * 8, h: 4 + Math.random() * 6, c: colors[Math.random() * colors.length | 0],
         r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, life: 90 + Math.random() * 60 });
@@ -228,7 +230,12 @@
     }
     raf = parts.length ? requestAnimationFrame(tick) : 0;
   }
-  document.getElementById('title').addEventListener('click', (e) => burst(e.clientX / innerWidth, e.clientY / innerHeight, 160));
+  function cannons() {
+    // two cannons in the bottom corners, firing up and inward
+    burst(0, 1, 140, -Math.PI * 0.30, Math.PI * 0.28);   // bottom-left  -> up-right
+    burst(1, 1, 140, -Math.PI * 0.70, Math.PI * 0.28);   // bottom-right -> up-left
+  }
+  document.getElementById('title').addEventListener('click', cannons);
   setTimeout(() => burst(0.5, 0.35, 120), 600); // welcome pop
 })();
 </script>
